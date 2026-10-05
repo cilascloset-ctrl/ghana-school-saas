@@ -1,0 +1,31 @@
+name: Build ERGO Wallet APK
+on:
+  push:
+    branches: ["ergo-apk-build"]
+    paths:
+      - "ergo-apk-builder/**"
+      - ".github/workflows/build-ergo-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build debug APK
+        working-directory: ergo-apk-builder
+        run: gradle --no-daemon assembleDebug
+      - name: Rename APK
+        run: cp ergo-apk-builder/app/build/outputs/apk/debug/app-debug.apk ERGO-Wallet.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ERGO-Wallet-APK
+          path: ERGO-Wallet.apk
+          retention-days: 1
