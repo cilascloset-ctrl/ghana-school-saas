@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ERGO Wallet</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#111;color:#fff;min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(100%,440px);background:#1b1b1b;border:1px solid #333;border-radius:28px;padding:28px;box-shadow:0 18px 60px #0008}.logo{width:64px;height:64px;border-radius:20px;background:#ffcb05;color:#111;display:grid;place-items:center;font-weight:900;font-size:30px;margin-bottom:22px}h1{margin:0 0 8px;font-size:28px}p{color:#bbb;line-height:1.5;margin:0 0 22px}label{font-size:13px;color:#ddd;display:block;margin-bottom:8px}input{width:100%;padding:15px 16px;border-radius:14px;border:1px solid #444;background:#111;color:white;font-size:16px;outline:none}input:focus{border-color:#ffcb05}button{width:100%;margin-top:14px;padding:15px 16px;border:0;border-radius:14px;background:#ffcb05;color:#111;font-size:16px;font-weight:800}.small{font-size:12px;color:#888;margin-top:15px}.reset{background:#2b2b2b;color:#eee}.hidden{display:none}.status{padding:12px;border-radius:12px;background:#26200a;color:#ffe575;margin:0 0 18px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">E</div>
+  <h1>ERGO Wallet</h1>
+  <p>Connect this Android app to your ERGO Wallet server.</p>
+  <div id="savedBox" class="hidden">
+    <div class="status">Opening your saved wallet server...</div>
+    <button id="openSaved">Open wallet</button>
+    <button id="changeServer" class="reset">Change server</button>
+  </div>
+  <form id="setupForm">
+    <label for="server">Railway/Render server URL</label>
+    <input id="server" type="url" inputmode="url" placeholder="https://your-wallet.up.railway.app" required>
+    <button type="submit">Connect wallet</button>
+    <div class="small">Use the HTTPS address of the backend after deployment. The address is saved only on this phone.</div>
+  </form>
+</div>
+<script>
+const key='ergo_wallet_server';
+const saved=localStorage.getItem(key);
+const form=document.getElementById('setupForm');
+const box=document.getElementById('savedBox');
+function normalize(v){return v.trim().replace(/\/+$/,'');}
+function openUrl(v){window.location.href=normalize(v)+'/';}
+if(saved){form.classList.add('hidden');box.classList.remove('hidden');}
+document.getElementById('openSaved').onclick=()=>openUrl(localStorage.getItem(key)||'');
+document.getElementById('changeServer').onclick=()=>{localStorage.removeItem(key);box.classList.add('hidden');form.classList.remove('hidden');};
+form.addEventListener('submit',e=>{e.preventDefault();const v=normalize(document.getElementById('server').value);if(!/^https?:\/\//i.test(v))return;localStorage.setItem(key,v);openUrl(v);});
+</script>
+</body>
+</html>
