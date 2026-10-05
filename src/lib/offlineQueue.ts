@@ -1,0 +1,8 @@
+const DB_NAME='edulink-offline'; const STORE='operations';
+function openDb():Promise<IDBDatabase>{return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE,{keyPath:'clientEventId'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+export async function queueAttendance(op:{schoolId:string;deviceId:string;studentId:string;action:'CHECK_IN'|'CHECK_OUT'}){
+  const db=await openDb(); const clientEventId=crypto.randomUUID();
+  const record={schoolId:op.schoolId,deviceId:op.deviceId,clientEventId,entityType:'attendance',operation:'create',payload:{studentId:op.studentId,action:op.action,occurredAt:new Date().toISOString()}};
+  await new Promise<void>((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(record);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)}); return record;
+}
+export async function syncQueued(){const db=await openDb();const rows:any[]=await new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});if(!rows.length)return{synced:0};const res=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operations:rows})});if(!res.ok)throw new Error('Sync failed');await new Promise<void>((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');const s=tx.objectStore(STORE);rows.forEach(x=>s.delete(x.clientEventId));tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)});return{synced:rows.length}}
