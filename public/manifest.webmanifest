@@ -1,0 +1,9 @@
+{
+  "name":"EduLink Ghana School Management",
+  "short_name":"EduLink",
+  "start_url":"/",
+  "display":"standalone",
+  "background_color":"#f4f7fb",
+  "theme_color":"#14532d",
+  "icons":[]
+}
