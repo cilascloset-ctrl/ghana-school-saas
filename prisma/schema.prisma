@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+  ACCOUNTANT
+}
+
+enum AttendanceAction {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum Channel {
+  SMS
+  WHATSAPP
+  IN_APP
+}
+
+enum CampaignStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  SENT
+  PARTIAL
+  FAILED
+}
+
+model School {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  phone       String?
+  email       String?
+  address     String?
+  senderId    String?  @default("SCHOOL")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  students    Student[]
+  classes     ClassRoom[]
+  attendance  AttendanceEvent[]
+  campaigns   MessageCampaign[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  schoolId     String?
+  school       School?  @relation(fields: [schoolId], references: [id])
+  role         Role
+  name         String
+  email        String?  @unique
+  phone        String?
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  student      Student?
+  parentLinks  ParentStudent[] @relation("ParentUser")
+  teacher      Teacher?
+  @@index([schoolId, role])
+}
+
+model Teacher {
+  id        String @id @default(cuid())
+  userId    String @unique
+  schoolId  String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school    School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staffNo   String
+  subjects  TeacherSubject[]
+  classes   ClassRoom[] @relation("ClassTeacher")
+  @@unique([schoolId, staffNo])
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  schoolId    String
+  userId      String?  @unique
+  classId     String?
+  admissionNo String
+  firstName   String
+  lastName    String
+  gender      String?
+  dateOfBirth DateTime?
+  active      Boolean  @default(true)
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id])
+  classRoom   ClassRoom? @relation(fields: [classId], references: [id])
+  parents     ParentStudent[]
+  attendance  AttendanceEvent[]
+  @@unique([schoolId, admissionNo])
+  @@index([schoolId, classId])
+}
+
+model ParentStudent {
+  id        String  @id @default(cuid())
+  parentId  String
+  studentId String
+  relation  String?
+  primary   Boolean @default(false)
+  parent    User    @relation("ParentUser", fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([parentId, studentId])
+}
+
+model ClassRoom {
+  id             String @id @default(cuid())
+  schoolId       String
+  name           String
+  academicYear   String
+  classTeacherId String?
+  school         School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classTeacher   Teacher? @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  students       Student[]
+  subjects       ClassSubject[]
+  @@unique([schoolId, name, academicYear])
+}
+
+model Subject {
+  id       String @id @default(cuid())
+  name     String
+  code     String @unique
+  classes  ClassSubject[]
+  teachers TeacherSubject[]
+}
+
+model ClassSubject {
+  id        String @id @default(cuid())
+  classId   String
+  subjectId String
+  classRoom ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  @@unique([classId, subjectId])
+}
+
+model TeacherSubject {
+  id        String @id @default(cuid())
+  teacherId String
+  subjectId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  @@unique([teacherId, subjectId])
+}
+
+model AttendanceEvent {
+  id          String           @id @default(cuid())
+  schoolId    String
+  studentId   String
+  action      AttendanceAction
+  occurredAt  DateTime
+  source      String           @default("MANUAL")
+  deviceId    String?
+  clientEventId String?        @unique
+  syncedAt    DateTime?        @default(now())
+  school      School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  notifications NotificationDelivery[]
+  @@index([schoolId, occurredAt])
+  @@index([studentId, occurredAt])
+}
+
+model MessageCampaign {
+  id          String         @id @default(cuid())
+  schoolId    String
+  title       String
+  body        String
+  channel     Channel
+  audience    String
+  status      CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  createdAt   DateTime       @default(now())
+  school      School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  deliveries  NotificationDelivery[]
+  @@index([schoolId, createdAt])
+}
+
+model NotificationDelivery {
+  id           String   @id @default(cuid())
+  campaignId   String?
+  attendanceId String?
+  channel      Channel
+  recipient    String
+  body         String
+  provider     String
+  providerId   String?
+  status       String   @default("QUEUED")
+  error        String?
+  createdAt    DateTime @default(now())
+  deliveredAt  DateTime?
+  campaign     MessageCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  attendance   AttendanceEvent? @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+}
+
+model SyncOperation {
+  id             String   @id @default(cuid())
+  schoolId       String
+  deviceId       String
+  clientEventId  String   @unique
+  entityType     String
+  operation      String
+  payload        Json
+  receivedAt     DateTime @default(now())
+  processedAt    DateTime?
+  status         String   @default("PROCESSED")
+  @@index([schoolId, deviceId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  schoolId  String?
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  @@index([schoolId, createdAt])
+}
